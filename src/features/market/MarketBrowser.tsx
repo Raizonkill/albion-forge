@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavStore } from '@/app/store/navStore'
 import { useServerStore } from '@/app/store/serverStore'
-import { parseTier, type GameItem } from '@/shared/game-data/items'
+import { hasQuality, parseTier, type GameItem } from '@/shared/game-data/items'
 import { ItemIcon } from '@/shared/ui/ItemIcon'
 import { cn } from '@/lib/utils'
 import { ItemSearch } from './components/ItemSearch'
@@ -22,7 +22,14 @@ export function MarketBrowser() {
   const [item, setItem] = useState<GameItem | null>(null)
   const [quality, setQuality] = useState(1)
 
-  const { data, isFetching, isError, error } = useMarketPrices(item?.id ?? null, quality)
+  // Only equipment/weapons/some mounts have quality variants; everything else is Normal.
+  const itemHasQuality = hasQuality(item)
+  const effectiveQuality = itemHasQuality ? quality : 1
+
+  const { data, isFetching, isError, error } = useMarketPrices(
+    item?.id ?? null,
+    effectiveQuality,
+  )
   const tier = item ? parseTier(item.id) : null
   const hasAnyData = data?.some((e) => e.status !== 'no_data')
 
@@ -50,7 +57,7 @@ export function MarketBrowser() {
 
         {item && (
           <div className="flex flex-wrap items-center gap-4 border-t border-divider pt-4">
-            <ItemIcon id={item.id} quality={quality} size={56} />
+            <ItemIcon id={item.id} quality={effectiveQuality} size={56} />
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <h2 className="truncate font-display text-lg">{item.es}</h2>
@@ -63,23 +70,29 @@ export function MarketBrowser() {
               <p className="text-xs text-text-faint">{item.id}</p>
             </div>
 
-            <div className="ml-auto flex flex-wrap gap-1 rounded-md border border-border bg-surface-2 p-1">
-              {QUALITIES.map((q) => (
-                <button
-                  key={q.v}
-                  type="button"
-                  onClick={() => setQuality(q.v)}
-                  className={cn(
-                    'rounded px-2.5 py-1.5 text-xs font-medium transition-colors',
-                    q.v === quality
-                      ? 'bg-primary text-black'
-                      : 'text-text-muted hover:text-text',
-                  )}
-                >
-                  {q.label}
-                </button>
-              ))}
-            </div>
+            {itemHasQuality ? (
+              <div className="ml-auto flex flex-wrap gap-1 rounded-md border border-border bg-surface-2 p-1">
+                {QUALITIES.map((q) => (
+                  <button
+                    key={q.v}
+                    type="button"
+                    onClick={() => setQuality(q.v)}
+                    className={cn(
+                      'rounded px-2.5 py-1.5 text-xs font-medium transition-colors',
+                      q.v === quality
+                        ? 'bg-primary text-black'
+                        : 'text-text-muted hover:text-text',
+                    )}
+                  >
+                    {q.label}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <span className="ml-auto rounded-md border border-border bg-surface-2 px-3 py-1.5 text-xs text-text-muted">
+                Sin variantes de calidad
+              </span>
+            )}
           </div>
         )}
       </div>

@@ -12,7 +12,7 @@ import type { SanitizedEntry } from '@/shared/types/market'
 import { RESOURCE_LIST, RESOURCES, type ResourceId } from './data/resources'
 import { buildResourceId, getItemValue, getRefinementRecipe } from './data/refining'
 import { refineProfit } from './calc/refineProfit'
-import { focusPerUnit, type SpecLevels } from './calc/focusCost'
+import { focusBase, focusPerUnit, type SpecLevels } from './calc/focusCost'
 import { useRefineStore } from './store'
 
 const TIERS = [2, 3, 4, 5, 6, 7, 8].map((t) => ({ value: t, label: `T${t}` }))
@@ -109,11 +109,14 @@ export function RefineCalculator() {
       })
     : null
 
-  // Focus is a per-unit cost reduced by mastery — only consumed when refining with focus.
-  const focusUnit = focus ? focusPerUnit(tier, enchant, specs) : 0
+  // Focus is a per-unit cost reduced by specialization. We always show the savings (so the
+  // player can decide whether to use focus); it's only actually *spent* when focus is on.
+  const focusBaseUnit = focusBase(tier, enchant)
+  const focusUnit = focusPerUnit(tier, enchant, specs)
+  const focusSavedUnit = focusBaseUnit - focusUnit
   const focusTotal = focusUnit * quantity
   const profitPerFocus =
-    breakdown && focusTotal > 0 ? breakdown.profitBatch / focusTotal : null
+    focus && breakdown && focusTotal > 0 ? breakdown.profitBatch / focusTotal : null
 
   const toggleForced = (
     key: 'forcedRaw' | 'forcedPrev' | 'forcedFinal',
@@ -186,13 +189,12 @@ export function RefineCalculator() {
             <Toggle label="Premium" checked={premium} onChange={(v) => update({ premium: v })} />
           </div>
 
-          {focus && (
-            <div className="grid gap-2 rounded-lg border border-border bg-surface-2/40 p-3">
-              <span className="text-xs font-medium uppercase tracking-wide text-text-muted">
-                Maestrías de refinamiento (0–100)
-              </span>
-              <div className="grid grid-cols-5 gap-2">
-                {SPEC_TIERS.map(({ key, label }) => (
+          <div className="grid gap-2 rounded-lg border border-border bg-surface-2/40 p-3">
+            <span className="text-xs font-medium uppercase tracking-wide text-text-muted">
+              Maestrías de refinamiento (0–100)
+            </span>
+            <div className="grid grid-cols-5 gap-2">
+              {SPEC_TIERS.map(({ key, label }) => (
                   <label key={key} className="grid gap-1 text-center">
                     <span className="text-[10px] text-text-muted">{label}</span>
                     <input
@@ -210,11 +212,10 @@ export function RefineCalculator() {
                       }
                       className="w-full rounded-md border border-border bg-surface px-1.5 py-2 text-center text-sm outline-none focus:border-primary/60"
                     />
-                  </label>
-                ))}
-              </div>
+                </label>
+              ))}
             </div>
-          )}
+          </div>
 
           <NumberField
             label="Tasa estación (×100)"
@@ -279,10 +280,20 @@ export function RefineCalculator() {
                   value={formatSilver(breakdown.profitUnit)}
                   accent={breakdown.profitUnit >= 0 ? 'text-success' : 'text-error'}
                 />
+                <Metric label="Foco base / ítem" value={focusBaseUnit.toFixed(1)} />
+                <Metric
+                  label="Foco con maestría / ítem"
+                  value={focusUnit.toFixed(1)}
+                  accent="text-primary"
+                />
+                <Metric
+                  label="Foco ahorrado / ítem"
+                  value={`${focusSavedUnit.toFixed(1)} (${focusBaseUnit > 0 ? ((focusSavedUnit / focusBaseUnit) * 100).toFixed(0) : 0}%)`}
+                  accent="text-success"
+                />
                 {focus && (
                   <>
-                    <Metric label="Foco / unidad" value={focusUnit.toFixed(2)} />
-                    <Metric label="Foco total" value={formatSilver(focusTotal)} />
+                    <Metric label="Foco total (lote)" value={formatSilver(focusTotal)} />
                     <Metric
                       label="Profit / foco"
                       value={profitPerFocus != null ? profitPerFocus.toFixed(2) : '—'}

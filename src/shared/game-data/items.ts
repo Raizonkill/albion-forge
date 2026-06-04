@@ -4,6 +4,13 @@ export interface GameItem {
   id: string
   en: string
   es: string
+  /** Present (1) when the item has quality variants (Normal→Masterpiece). */
+  q?: 1
+}
+
+/** Whether an item supports quality variants (equipment, weapons, some mounts). */
+export function hasQuality(item: GameItem | null | undefined): boolean {
+  return item?.q === 1
 }
 
 /** Loads the normalized item index built by scripts/build-items.mjs (public/data/items.json). */

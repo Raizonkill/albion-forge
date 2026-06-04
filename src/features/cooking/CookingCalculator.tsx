@@ -6,16 +6,9 @@ import { formatSilver } from '@/lib/utils'
 import { Field, NumberField, Toggle } from '@/shared/ui/controls'
 import { ItemIcon } from '@/shared/ui/ItemIcon'
 import { useMarketPricesMulti } from '@/features/market/api/useMarketPricesMulti'
-import { getItemValue } from '@/features/refine/data/refining'
-import {
-  AVALON_ENERGY_ID,
-  COOKING_BRANCHES,
-  COOKING_RECIPES,
-  SAUCE_IDS,
-  mealItemId,
-} from './data/recipes'
+import { COOKING_BRANCHES, COOKING_RECIPES, SAUCE_IDS, mealItemId } from './data/recipes'
 import { cookingProfit } from './calc/cookingProfit'
-import { cookingFocusPerBatch } from './calc/cookingFocus'
+import { focusPerCraft } from './calc/cookingFocus'
 import { useCookingStore } from './store'
 
 const CRAFT_CITIES = CITIES.filter((c) => c !== 'Black Market')
@@ -49,13 +42,14 @@ export function CookingCalculator() {
       0,
     ) + chefBase
 
-  // Every id this recipe touches: ingredients, the 4 meal enchants, sauces, avalon energy.
+  // Every id this recipe touches: ingredients (incl. avalon energy), the meal enchants
+  // it actually has, and the sauces those enchants use.
   const ids = useMemo(() => {
-    const meals = [0, 1, 2, 3].map((e) => mealItemId(recipe.id, e))
-    const sauces = [1, 2, 3].map((e) => SAUCE_IDS[e])
+    const levels = recipe.focusByEnchant.map((_f, i) => i)
+    const meals = levels.map((e) => mealItemId(recipe.id, e))
+    const sauces = levels.filter((e) => (recipe.sauceByEnchant[e] ?? 0) > 0).map((e) => SAUCE_IDS[e])
     const ing = recipe.ingredientes.map((i) => i.id)
-    const av = recipe.avalon ? [AVALON_ENERGY_ID] : []
-    return [...new Set([...ing, ...meals, ...sauces, ...av])]
+    return [...new Set([...ing, ...meals, ...sauces])]
   }, [recipe])
 
   const { data, isFetching, isError, error } = useMarketPricesMulti(ids, 1)
@@ -79,7 +73,6 @@ export function CookingCalculator() {
         premium,
         batches,
         priceAt,
-        itemValueFor: getItemValue,
         stationFeePer100: stationFee,
       }),
     [recipe, craftCity, premium, batches, priceAt, stationFee],
@@ -238,7 +231,8 @@ export function CookingCalculator() {
 
           <div className="rounded-xl border border-white/8 bg-surface p-5">
             <p className="text-[11px] uppercase tracking-wide text-text-muted">
-              Mejor profit ({batches} batches · {recipe.unidades}u/batch)
+              Mejor profit ({batches} crafteos · {recipe.output} u/crafteo
+              {recipe.output === 1 ? ' · receta de pescado' : ''})
             </p>
             {best ? (
               <>
@@ -264,10 +258,10 @@ export function CookingCalculator() {
           </div>
 
           {results.map((r) => {
-            const focusBatch = focus
-              ? cookingFocusPerBatch(recipe.focusBase, r.enchant, principalSpec, otherSpecsSum)
+            const focusCraft = focus
+              ? focusPerCraft(recipe.focusByEnchant[r.enchant], principalSpec, otherSpecsSum)
               : 0
-            const focusTotal = focusBatch * batches
+            const focusTotal = focusCraft * batches
             const profitPerFocus =
               r.bestProfit != null && focusTotal > 0 ? r.bestProfit / focusTotal : null
             return (
