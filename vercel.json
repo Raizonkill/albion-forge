@@ -1,0 +1,17 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "rewrites": [
+    {
+      "source": "/aod/west/:path*",
+      "destination": "https://west.albion-online-data.com/:path*"
+    },
+    {
+      "source": "/aod/east/:path*",
+      "destination": "https://east.albion-online-data.com/:path*"
+    },
+    {
+      "source": "/aod/europe/:path*",
+      "destination": "https://europe.albion-online-data.com/:path*"
+    }
+  ]
+}
