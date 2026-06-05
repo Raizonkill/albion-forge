@@ -6,7 +6,8 @@ import { formatSilver } from '@/lib/utils'
 import { Field, NumberField, Toggle } from '@/shared/ui/controls'
 import { ItemIcon } from '@/shared/ui/ItemIcon'
 import { useMarketPricesMulti } from '@/features/market/api/useMarketPricesMulti'
-import { COOKING_BRANCHES, COOKING_RECIPES, SAUCE_IDS, mealItemId } from './data/recipes'
+import { COOKING_RECIPES, SAUCE_IDS, mealItemId } from './data/recipes'
+import { COOKING_SPECS } from './specs'
 import { cookingProfit } from './calc/cookingProfit'
 import { focusPerCraft } from './calc/cookingFocus'
 import { useCookingStore } from './store'
@@ -33,11 +34,11 @@ export function CookingCalculator() {
 
   const recipe = COOKING_RECIPES.find((r) => r.id === recipeId) ?? COOKING_RECIPES[0]
 
-  // Focus model: principal = this dish's branch (weight 2.8); other = sum of the rest
-  // of the cooking tree + the general Chef node (weight 0.3).
+  // Focus model: principal = this dish's branch (×250); others = every other cooking spec
+  // (meal branches + Butcher + Ingredients + Chef node), each ×30.
   const principalSpec = branchSpecs[recipe.tipo] ?? 0
   const otherSpecsSum =
-    COOKING_BRANCHES.reduce(
+    COOKING_SPECS.reduce(
       (sum, b) => (b === recipe.tipo ? sum : sum + (branchSpecs[b] ?? 0)),
       0,
     ) + chefBase
@@ -150,7 +151,7 @@ export function CookingCalculator() {
                 Maestrías de cocina (0–100)
               </span>
               <div className="grid grid-cols-2 gap-2">
-                {COOKING_BRANCHES.map((b) => {
+                {COOKING_SPECS.map((b) => {
                   const isPrincipal = b === recipe.tipo
                   return (
                     <label key={b} className="grid gap-1">

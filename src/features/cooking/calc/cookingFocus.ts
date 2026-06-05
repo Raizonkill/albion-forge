@@ -1,16 +1,17 @@
 /**
- * Cooking focus cost — recipe-oriented model (spec v2.7).
+ * Cooking focus cost — Albion's official crafting-focus formula.
  *
- *   Foco Final = BaseFocus × Factor
- *   Factor     = 0.5 ^ ((2.8 × SpecPrincipal + 0.3 × ΣOtrasSpecs) / 100)
+ *   Foco Final = BaseFocus / 2 ^ (E / 10000)
+ *   E          = 250 × SpecPrincipal + 30 × ΣOtrasSpecs
  *
- * BaseFocus is the real per-craft @craftingfocus from ao-bin-dumps (per craft, which
- * yields recipe.output meals). SpecPrincipal = the dish's own branch (weight 2.8);
- * ΣOtrasSpecs = the other branches + the general Chef node (weight 0.3).
+ * i.e. focus halves for every 10 000 points of focus efficiency (wiki: Crafting_Focus).
+ * BaseFocus is the real per-craft @craftingfocus from ao-bin-dumps. SpecPrincipal = the
+ * dish's own branch (×250); ΣOtrasSpecs = every OTHER cooking spec — the other meal
+ * branches plus Butcher (Carnicería), Ingredients and the Chef node — each ×30.
  *
- * Verified vs the doc's Kraken .2 (base 2473): factor 1 / 0.53588 / 0.43527.
+ * Written as a base-0.5 power: 0.5 ^ ((2.5 × principal + 0.3 × others) / 100).
  */
-const PRINCIPAL_WEIGHT = 2.8
+const PRINCIPAL_WEIGHT = 2.5
 const OTHER_WEIGHT = 0.3
 
 export function masteryFactor(principalSpec: number, otherSpecsSum: number): number {

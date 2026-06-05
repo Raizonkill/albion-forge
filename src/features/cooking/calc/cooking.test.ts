@@ -44,17 +44,21 @@ describe('cookingProfit', () => {
   })
 })
 
-describe('cooking focus model (spec v2.7)', () => {
-  // Doc case study: Kraken .2, base @craftingfocus 2473.
-  it('matches the three documented mastery scenarios', () => {
+describe('cooking focus model (official: E = 250·principal + 30·others, B / 2^(E/10000))', () => {
+  it('halves focus every 10000 efficiency points', () => {
     expect(masteryFactor(0, 0)).toBeCloseTo(1, 5)
-    expect(masteryFactor(30, 20)).toBeCloseTo(0.53588, 4)
-    expect(masteryFactor(30, 120)).toBeCloseTo(0.43527, 4)
-    expect(focusPerCraft(2473, 30, 20)).toBeCloseTo(1325, 0)
-    expect(focusPerCraft(2473, 30, 120)).toBeCloseTo(1076, 0)
+    expect(masteryFactor(40, 0)).toBeCloseTo(0.5, 5) // E = 250×40 = 10000
+    expect(masteryFactor(80, 0)).toBeCloseTo(0.25, 5) // E = 20000
+    expect(masteryFactor(0, 1000 / 3)).toBeCloseTo(0.5, 5) // E = 30×(1000/3) = 10000
   })
 
-  it('weights principal spec 2.8× vs other specs 0.3×', () => {
+  it('uses the 250 / 30 weighting', () => {
+    // principal 30, others 20 → E = 7500 + 600 = 8100 → 2^-0.81 ≈ 0.5704
+    expect(masteryFactor(30, 20)).toBeCloseTo(0.5704, 3)
+    expect(focusPerCraft(2473, 30, 20)).toBeCloseTo(2473 * 0.5704, 0)
+  })
+
+  it('weights principal spec far more than other specs', () => {
     expect(masteryFactor(10, 0)).toBeLessThan(masteryFactor(0, 10))
   })
 })
