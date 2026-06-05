@@ -21,12 +21,33 @@ describe('cookingProfit', () => {
       batches: 1,
       priceAt,
       stationFeePer100: 350,
+      returnRate: 0, // no return → full material cost
     })[0]
     // ingredients 160 + station 77×0.001125×350 = 30.31875 → 190.31875
     expect(e0.investment).toBeCloseTo(190.31875, 3)
     // income 200×10×0.935 = 1870 → profit 1679.68125
     expect(e0.bestProfit).toBeCloseTo(1679.68125, 2)
     expect(e0.bestCity).toBe('Caerleon')
+  })
+
+  it('reduces material cost by the resource return rate', () => {
+    const priceAt: PriceAt = (id, city) => {
+      if (id === 'T1_CARROT') return 10
+      if (id === 'T1_MEAL_SOUP' && city === 'Caerleon') return 200
+      return null
+    }
+    const e0 = cookingProfit({
+      recipe: soup,
+      craftCity: 'Caerleon',
+      cities: ['Caerleon'],
+      premium: true,
+      batches: 1,
+      priceAt,
+      stationFeePer100: 350,
+      returnRate: 0.435, // with focus
+    })[0]
+    // materials 160 × (1 - 0.435) = 90.4; + station 30.31875 = 120.71875
+    expect(e0.investment).toBeCloseTo(120.71875, 3)
   })
 
   it('produces one result per available enchant level', () => {
@@ -38,6 +59,7 @@ describe('cookingProfit', () => {
       batches: 1,
       priceAt: () => null,
       stationFeePer100: 350,
+      returnRate: 0.435,
     })
     expect(results.length).toBe(soup.focusByEnchant.length)
     expect(results[0].investment).toBeNull() // no ingredient prices

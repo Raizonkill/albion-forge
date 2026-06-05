@@ -12,6 +12,8 @@ export interface CookingParams {
   batches: number
   priceAt: PriceAt
   stationFeePer100: number
+  /** Effective resource return rate (0–1). Reduces the material cost actually spent. */
+  returnRate: number
 }
 
 export interface CityProfit {
@@ -59,8 +61,10 @@ function buyPrice(
  * station fee uses the food's nutrition. Missing ingredient prices → null investment.
  */
 export function cookingProfit(params: CookingParams): EnchantResult[] {
-  const { recipe, craftCity, cities, premium, batches, priceAt, stationFeePer100 } = params
+  const { recipe, craftCity, cities, premium, batches, priceAt, stationFeePer100, returnRate } =
+    params
   const tax = totalSalesTax(premium)
+  const keep = 1 - returnRate // fraction of materials you actually have to buy
 
   // Base ingredient cost per craft (same for every enchant). Null if any is unpriced.
   let ingredientsCost = 0
@@ -80,8 +84,10 @@ export function cookingProfit(params: CookingParams): EnchantResult[] {
       sauceQty > 0 ? buyPrice(priceAt, SAUCE_IDS[enchant], craftCity, cities) : 0
     const sauceCost = sauceQty > 0 ? (saucePrice ?? 0) * sauceQty : 0
 
+    // Resource return reduces the materials (ingredients + sauce) you must buy; the
+    // station fee is unaffected.
     const investmentPerCraft = ingredientsKnown
-      ? ingredientsCost + sauceCost + stationCost
+      ? (ingredientsCost + sauceCost) * keep + stationCost
       : null
     const investment = investmentPerCraft != null ? investmentPerCraft * batches : null
 

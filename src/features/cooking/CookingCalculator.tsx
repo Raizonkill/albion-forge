@@ -10,6 +10,7 @@ import { COOKING_RECIPES, SAUCE_IDS, mealItemId } from './data/recipes'
 import { COOKING_SPECS } from './specs'
 import { cookingProfit } from './calc/cookingProfit'
 import { focusPerCraft } from './calc/cookingFocus'
+import { effectiveReturnRate } from '@/features/refine/calc/returnRate'
 import { useCookingStore } from './store'
 
 const CRAFT_CITIES = CITIES.filter((c) => c !== 'Black Market')
@@ -41,6 +42,10 @@ export function CookingCalculator() {
   const principalSpec = branchSpecs[recipe.tipo] ?? 0
   const allSpecsSum =
     COOKING_SPECS.reduce((sum, b) => sum + (branchSpecs[b] ?? 0), 0) + chefBase
+
+  // Resource return: using focus raises the return rate (and so lowers material cost).
+  const returnRate = effectiveReturnRate({ bonusCity: false, focus })
+  const keep = 1 - returnRate
 
   // Every id this recipe touches: ingredients (incl. avalon energy), the meal enchants
   // it actually has, and the sauces those enchants use.
@@ -76,6 +81,18 @@ export function CookingCalculator() {
     return best
   }
 
+  // Net base-material cost after the resource return (for the "materials consumed" summary).
+  const baseGross = recipe.ingredientes.reduce(
+    (acc, ing) => {
+      const u = buyPrice(ing.id)
+      return u == null
+        ? { sum: acc.sum, known: false }
+        : { sum: acc.sum + u * ing.qty, known: acc.known }
+    },
+    { sum: 0, known: true },
+  )
+  const netBaseTotal = baseGross.known ? baseGross.sum * keep : null
+
   const results = useMemo(
     () =>
       cookingProfit({
@@ -86,8 +103,9 @@ export function CookingCalculator() {
         batches,
         priceAt,
         stationFeePer100: stationFee,
+        returnRate,
       }),
-    [recipe, craftCity, premium, batches, priceAt, stationFee],
+    [recipe, craftCity, premium, batches, priceAt, stationFee, returnRate],
   )
 
   const best = results.reduce<{ profit: number; enchant: number; city: string } | null>(
@@ -276,6 +294,39 @@ export function CookingCalculator() {
               </div>
             )}
           </div>
+
+          {/* Materials actually consumed, after the resource return */}
+          <div className="grid gap-2 rounded-lg border border-success/20 bg-success/5 p-3">
+            <div className="flex items-baseline justify-between">
+              <span className="text-xs font-medium uppercase tracking-wide text-text-muted">
+                Materiales consumidos
+              </span>
+              <span className="text-[10px] font-bold text-success">
+                devolución {(returnRate * 100).toFixed(1)}%
+              </span>
+            </div>
+            {recipe.ingredientes.map((ing) => {
+              const name = ing.id === 'QUESTITEM_TOKEN_AVALON' ? AVALON_NAME : ing.name
+              return (
+                <div
+                  key={ing.id}
+                  className="flex items-center justify-between gap-2 text-xs"
+                >
+                  <span className="min-w-0 flex-1 truncate text-text-muted">{name}</span>
+                  <span className="tabular">
+                    {(ing.qty * keep).toFixed(1)}{' '}
+                    <span className="text-text-faint">de {ing.qty}</span>
+                  </span>
+                </div>
+              )
+            })}
+            <div className="mt-1 flex items-center justify-between border-t border-divider pt-2 text-sm">
+              <span className="font-medium">Coste neto materiales (.0)</span>
+              <span className="tabular font-bold text-success">
+                {netBaseTotal != null ? formatSilver(netBaseTotal) : '—'}
+              </span>
+            </div>
+          </div>
         </aside>
 
         {/* Results */}
@@ -328,6 +379,18 @@ export function CookingCalculator() {
                   <span className={`font-bold ${ENCHANT_COLORS[r.enchant]}`}>
                     {ENCHANT_LABELS[r.enchant]}
                   </span>
+                  {r.bestProfit != null ? (
+                    <span
+                      className={`tabular text-sm font-bold ${
+                        r.bestProfit >= 0 ? 'text-success' : 'text-error'
+                      }`}
+                    >
+                      mejor {r.bestProfit >= 0 ? '+' : ''}
+                      {formatSilver(r.bestProfit)} · {r.bestCity}
+                    </span>
+                  ) : (
+                    <span className="text-xs text-text-faint">sin datos</span>
+                  )}
                   <span className="text-xs text-text-muted">
                     Inversión: {r.investment != null ? formatSilver(r.investment) : '—'}
                   </span>
