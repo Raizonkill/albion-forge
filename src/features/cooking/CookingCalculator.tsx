@@ -34,14 +34,11 @@ export function CookingCalculator() {
 
   const recipe = COOKING_RECIPES.find((r) => r.id === recipeId) ?? COOKING_RECIPES[0]
 
-  // Focus model: principal = this dish's branch (×250); others = every other cooking spec
-  // (meal branches + Butcher + Ingredients + Chef node), each ×30.
+  // Focus model: E = 250·principal + 30·ΣallSpecs. The ×30 sum includes EVERY cooking
+  // spec — all meal branches (incl. the principal), Butcher, Ingredients and the Chef node.
   const principalSpec = branchSpecs[recipe.tipo] ?? 0
-  const otherSpecsSum =
-    COOKING_SPECS.reduce(
-      (sum, b) => (b === recipe.tipo ? sum : sum + (branchSpecs[b] ?? 0)),
-      0,
-    ) + chefBase
+  const allSpecsSum =
+    COOKING_SPECS.reduce((sum, b) => sum + (branchSpecs[b] ?? 0), 0) + chefBase
 
   // Every id this recipe touches: ingredients (incl. avalon energy), the meal enchants
   // it actually has, and the sauces those enchants use.
@@ -260,7 +257,7 @@ export function CookingCalculator() {
 
           {results.map((r) => {
             const focusCraft = focus
-              ? focusPerCraft(recipe.focusByEnchant[r.enchant], principalSpec, otherSpecsSum)
+              ? focusPerCraft(recipe.focusByEnchant[r.enchant], principalSpec, allSpecsSum)
               : 0
             const focusTotal = focusCraft * batches
             const profitPerFocus =

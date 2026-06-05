@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { cookingProfit, type PriceAt } from './cookingProfit'
-import { focusPerCraft, masteryFactor } from './cookingFocus'
+import { focusEfficiency, focusPerCraft, masteryFactor } from './cookingFocus'
 import { COOKING_RECIPES } from '../data/recipes'
 
 const soup = COOKING_RECIPES.find((r) => r.id === 'T1_MEAL_SOUP')! // Carrot ×16, output 10, nutrition 77
@@ -44,21 +44,22 @@ describe('cookingProfit', () => {
   })
 })
 
-describe('cooking focus model (official: E = 250·principal + 30·others, B / 2^(E/10000))', () => {
+describe('cooking focus model (official: E = 250·principal + 30·ΣallSpecs, B / 2^(E/10000))', () => {
+  it("matches Raizon's hand-computed Guiso de Ternera Ava case", () => {
+    // Specs: Guisos 95 (principal); all specs sum (incl. principal + Chef) = 622.
+    // E = 250×95 + 30×622 = 42410; B = 5280 → 5280 / 2^4.241 ≈ 279.
+    expect(focusEfficiency(95, 622)).toBe(42410)
+    expect(focusPerCraft(5280, 95, 622)).toBeCloseTo(279, 0)
+  })
+
   it('halves focus every 10000 efficiency points', () => {
     expect(masteryFactor(0, 0)).toBeCloseTo(1, 5)
     expect(masteryFactor(40, 0)).toBeCloseTo(0.5, 5) // E = 250×40 = 10000
     expect(masteryFactor(80, 0)).toBeCloseTo(0.25, 5) // E = 20000
-    expect(masteryFactor(0, 1000 / 3)).toBeCloseTo(0.5, 5) // E = 30×(1000/3) = 10000
   })
 
-  it('uses the 250 / 30 weighting', () => {
-    // principal 30, others 20 → E = 7500 + 600 = 8100 → 2^-0.81 ≈ 0.5704
-    expect(masteryFactor(30, 20)).toBeCloseTo(0.5704, 3)
-    expect(focusPerCraft(2473, 30, 20)).toBeCloseTo(2473 * 0.5704, 0)
-  })
-
-  it('weights principal spec far more than other specs', () => {
-    expect(masteryFactor(10, 0)).toBeLessThan(masteryFactor(0, 10))
+  it('counts the principal spec in BOTH the ×250 term and the ×30 sum', () => {
+    // principal 10 with allSpecsSum=10 (only the principal) → E = 2500 + 300 = 2800
+    expect(focusEfficiency(10, 10)).toBe(2800)
   })
 })
