@@ -15,6 +15,8 @@ import { useCookingStore } from './store'
 const CRAFT_CITIES = CITIES.filter((c) => c !== 'Black Market')
 const ENCHANT_LABELS = ['.0 Base', '.1 Salsa', '.2 Salsa', '.3 Salsa']
 const ENCHANT_COLORS = ['text-text', 'text-success', 'text-blue', 'text-primary']
+const SAUCE_LABELS = ['', 'Salsa básica', 'Salsa especial', 'Salsa extravagante']
+const AVALON_NAME = 'Energía Avaloniana'
 
 export function CookingCalculator() {
   const close = useNavStore((s) => s.close)
@@ -61,6 +63,18 @@ export function CookingCalculator() {
     }
     return (itemId: string, city: string): number | null => maps[itemId]?.[city] ?? null
   }, [data])
+
+  // Buy price for an item: at the craft city, else cheapest anywhere (same rule the cost calc uses).
+  const buyPrice = (itemId: string): number | null => {
+    const atCraft = priceAt(itemId, craftCity)
+    if (atCraft != null) return atCraft
+    let best: number | null = null
+    for (const c of CITIES) {
+      const p = priceAt(itemId, c)
+      if (p != null && (best === null || p < best)) best = p
+    }
+    return best
+  }
 
   const results = useMemo(
     () =>
@@ -204,18 +218,63 @@ export function CookingCalculator() {
             onChange={(v) => update({ batches: v })}
           />
 
-          {/* Ingredient reference */}
+          {/* Ingredients + prices (per craft) */}
           <div className="grid gap-2 border-t border-divider pt-3">
-            <span className="text-xs font-medium uppercase tracking-wide text-text-muted">
-              Ingredientes / batch
-            </span>
-            {recipe.ingredientes.map((ing) => (
-              <div key={ing.id} className="flex items-center gap-2 text-sm">
-                <ItemIcon id={ing.id} size={28} />
-                <span className="flex-1 truncate text-text-muted">{ing.name}</span>
-                <span className="tabular">{ing.qty}×</span>
+            <div className="flex items-baseline justify-between">
+              <span className="text-xs font-medium uppercase tracking-wide text-text-muted">
+                Ingredientes (.0) / crafteo
+              </span>
+              <span className="text-[10px] text-text-faint">en {craftCity}</span>
+            </div>
+            {recipe.ingredientes.map((ing) => {
+              const unit = buyPrice(ing.id)
+              const sub = unit != null ? unit * ing.qty : null
+              const name = ing.id === 'QUESTITEM_TOKEN_AVALON' ? AVALON_NAME : ing.name
+              return (
+                <div key={ing.id} className="flex items-center gap-2 text-sm">
+                  <ItemIcon id={ing.id} size={28} />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate">{name}</span>
+                    <span className="block text-[10px] text-text-faint">
+                      {ing.qty}× {unit != null ? `@ ${formatSilver(unit)}` : '· sin precio'}
+                    </span>
+                  </span>
+                  <span className="tabular font-medium">
+                    {sub != null ? formatSilver(sub) : '—'}
+                  </span>
+                </div>
+              )
+            })}
+
+            {recipe.sauceByEnchant.some((q) => q > 0) && (
+              <div className="mt-1 grid gap-2 border-t border-divider pt-2">
+                <span className="text-xs font-medium uppercase tracking-wide text-text-muted">
+                  Salsas (por nivel)
+                </span>
+                {recipe.sauceByEnchant.map((qty, lvl) => {
+                  if (lvl === 0 || qty <= 0) return null
+                  const sid = SAUCE_IDS[lvl]
+                  const unit = buyPrice(sid)
+                  const sub = unit != null ? unit * qty : null
+                  return (
+                    <div key={lvl} className="flex items-center gap-2 text-sm">
+                      <ItemIcon id={sid} size={28} />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate">
+                          .{lvl} {SAUCE_LABELS[lvl]}
+                        </span>
+                        <span className="block text-[10px] text-text-faint">
+                          {qty}× {unit != null ? `@ ${formatSilver(unit)}` : '· sin precio'}
+                        </span>
+                      </span>
+                      <span className="tabular font-medium">
+                        {sub != null ? formatSilver(sub) : '—'}
+                      </span>
+                    </div>
+                  )
+                })}
               </div>
-            ))}
+            )}
           </div>
         </aside>
 
