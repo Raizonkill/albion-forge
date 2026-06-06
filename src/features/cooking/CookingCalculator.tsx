@@ -19,6 +19,15 @@ const ENCHANT_COLORS = ['text-text', 'text-success', 'text-blue', 'text-primary'
 const SAUCE_LABELS = ['', 'Salsa básica', 'Salsa especial', 'Salsa extravagante']
 const AVALON_NAME = 'Energía Avaloniana'
 
+function BdRow({ label, value, accent }: { label: string; value: string; accent?: string }) {
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <span className="text-text-muted">{label}</span>
+      <span className={`tabular ${accent ?? ''}`}>{value}</span>
+    </div>
+  )
+}
+
 export function CookingCalculator() {
   const close = useNavStore((s) => s.close)
   const server = useServerStore((s) => s.server)
@@ -457,6 +466,37 @@ export function CookingCalculator() {
                     </tbody>
                   </table>
                 </div>
+
+                {r.breakdown.income != null && (
+                  <div className="grid gap-1 border-t border-divider px-4 py-3 text-xs">
+                    <span className="text-[10px] font-bold uppercase tracking-wide text-text-muted">
+                      Desglose .{r.enchant}
+                    </span>
+                    <BdRow
+                      label="Materiales con retorno"
+                      value={formatSilver(r.breakdown.returnableMat)}
+                    />
+                    {r.breakdown.nonReturnMat > 0 && (
+                      <BdRow
+                        label="Sin retorno (energía/peces)"
+                        value={formatSilver(r.breakdown.nonReturnMat)}
+                      />
+                    )}
+                    <BdRow
+                      label={`Devolución (${(returnRate * 100).toFixed(1)}%)`}
+                      value={`+${formatSilver(r.breakdown.returnValue)}`}
+                      accent="text-success"
+                    />
+                    <BdRow
+                      label="Coste estación"
+                      value={`−${formatSilver(r.breakdown.stationCost)}`}
+                    />
+                    <BdRow
+                      label="Ingreso (mejor ciudad, tras imp.)"
+                      value={formatSilver(r.breakdown.income)}
+                    />
+                  </div>
+                )}
               </div>
             )
           })}

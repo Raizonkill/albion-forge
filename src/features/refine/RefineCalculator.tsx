@@ -9,9 +9,12 @@ import {
   bestSell,
 } from '@/features/market/api/useMarketPricesMulti'
 import type { SanitizedEntry } from '@/shared/types/market'
+import { totalSalesTax } from '@/config/game'
 import { RESOURCE_LIST, RESOURCES, type ResourceId } from './data/resources'
 import { buildResourceId, getItemValue, getRefinementRecipe } from './data/refining'
 import { refineProfit } from './calc/refineProfit'
+import { effectiveReturnRate } from './calc/returnRate'
+import { stationFeeUnit } from './calc/stationFee'
 import { focusBase, focusPerUnit, type SpecLevels } from './calc/focusCost'
 import { useRefineStore } from './store'
 
@@ -43,6 +46,29 @@ function Metric({ label, value, accent }: { label: string; value: string; accent
     <div className="rounded-lg border border-white/5 bg-surface-2 px-4 py-3">
       <span className="block text-[10px] uppercase tracking-wide text-text-muted">{label}</span>
       <strong className={`tabular text-base ${accent ?? ''}`}>{value}</strong>
+    </div>
+  )
+}
+
+function DRow({
+  label,
+  value,
+  accent,
+  bold,
+}: {
+  label: string
+  value: string
+  accent?: string
+  bold?: boolean
+}) {
+  return (
+    <div
+      className={`flex items-center justify-between gap-2 ${
+        bold ? 'border-t border-divider pt-1.5 font-bold' : 'text-text-muted'
+      }`}
+    >
+      <span>{label}</span>
+      <span className={`tabular ${accent ?? ''} ${bold ? '' : ''}`}>{value}</span>
     </div>
   )
 }
@@ -108,6 +134,36 @@ export function RefineCalculator() {
         quantity,
       })
     : null
+
+  // Breakdown panel: line items + Sin Foco vs Con Foco comparison (return only differs).
+  const desglose =
+    canCompute && rawPick && finalPick
+      ? (() => {
+          const tax = totalSalesTax(premium)
+          const rawCost = rawPick.price * recipe.rawQty * quantity
+          const prevCost = (prevPick?.price ?? 0) * recipe.prevQty * quantity
+          const totalMat = rawCost + prevCost
+          const ingreso = finalPick.price * quantity * (1 - tax)
+          const estacion = stationFeeUnit(getItemValue(tier, enchant), stationFee) * quantity
+          const rrrSin = effectiveReturnRate({ bonusCity, focus: false })
+          const rrrCon = effectiveReturnRate({ bonusCity, focus: true })
+          const devSin = totalMat * rrrSin
+          const devCon = totalMat * rrrCon
+          return {
+            rawCost,
+            prevCost,
+            totalMat,
+            ingreso,
+            estacion,
+            rrrSin,
+            rrrCon,
+            devSin,
+            devCon,
+            profitSin: ingreso + devSin - totalMat - estacion,
+            profitCon: ingreso + devCon - totalMat - estacion,
+          }
+        })()
+      : null
 
   // Focus is a per-unit cost reduced by specialization. We always show the savings (so the
   // player can decide whether to use focus); it's only actually *spent* when focus is on.
@@ -326,6 +382,87 @@ export function RefineCalculator() {
               </div>
             )}
           </div>
+
+          {desglose && (
+            <div className="grid gap-4 rounded-xl border border-white/8 bg-surface p-5">
+              <h3 className="font-display text-base text-primary">
+                Desglose · {quantity}× {meta.refinedStem} T{tier}.{enchant} ·{' '}
+                {(totalSalesTax(premium) * 100).toFixed(1)}% impuesto
+              </h3>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-lg border border-white/5 bg-surface-2 p-3 text-center">
+                  <span className="block text-xs text-text-muted">
+                    Sin foco ({(desglose.rrrSin * 100).toFixed(1)}%)
+                  </span>
+                  <strong
+                    className={`tabular text-lg ${
+                      desglose.profitSin >= 0 ? 'text-success' : 'text-error'
+                    }`}
+                  >
+                    {desglose.profitSin >= 0 ? '+' : ''}
+                    {formatSilver(desglose.profitSin)}
+                  </strong>
+                </div>
+                <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-center">
+                  <span className="block text-xs text-text-muted">
+                    Con foco ({(desglose.rrrCon * 100).toFixed(1)}%)
+                  </span>
+                  <strong
+                    className={`tabular text-lg ${
+                      desglose.profitCon >= 0 ? 'text-success' : 'text-error'
+                    }`}
+                  >
+                    {desglose.profitCon >= 0 ? '+' : ''}
+                    {formatSilver(desglose.profitCon)}
+                  </strong>
+                </div>
+              </div>
+
+              <div className="grid gap-1.5 text-sm">
+                <DRow label="Costo materia prima" value={formatSilver(desglose.rawCost)} />
+                {prevId && (
+                  <DRow
+                    label="Costo refinado anterior"
+                    value={formatSilver(desglose.prevCost)}
+                  />
+                )}
+                <DRow label="Total materiales" value={formatSilver(desglose.totalMat)} bold />
+                <DRow
+                  label={`Devolución sin foco (${(desglose.rrrSin * 100).toFixed(1)}%)`}
+                  value={`+${formatSilver(desglose.devSin)}`}
+                  accent="text-success"
+                />
+                <DRow
+                  label={`Devolución con foco (${(desglose.rrrCon * 100).toFixed(1)}%)`}
+                  value={`+${formatSilver(desglose.devCon)}`}
+                  accent="text-success"
+                />
+                <DRow
+                  label="Coste estación"
+                  value={`−${formatSilver(desglose.estacion)}`}
+                  accent="text-text-muted"
+                />
+                <DRow
+                  label="Ingreso (tras impuesto)"
+                  value={formatSilver(desglose.ingreso)}
+                  bold
+                />
+              </div>
+
+              <div className="rounded-lg border-l-2 border-primary bg-primary/5 p-3">
+                <span className="block text-xs font-bold uppercase tracking-wide text-primary">
+                  Fórmula
+                </span>
+                <p className="text-sm font-medium">
+                  Profit = Ingreso + Devolución − Materiales − Estación
+                </p>
+                <p className="mt-1 text-xs text-text-muted">
+                  La devolución aplica solo al refinar en {meta.bonusCity} (ciudad del recurso).
+                </p>
+              </div>
+            </div>
+          )}
 
           {finalEntries && (
             <PriceSection

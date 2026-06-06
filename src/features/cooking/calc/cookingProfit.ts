@@ -23,6 +23,19 @@ export interface CityProfit {
   profit: number | null
 }
 
+export interface EnchantBreakdown {
+  /** Returnable materials (normal ingredients + sauce), run total, gross. */
+  returnableMat: number
+  /** Non-returnable materials (avalon energy, rare fish), run total. */
+  nonReturnMat: number
+  /** Silver returned by the resource return (run total). */
+  returnValue: number
+  /** Station fee, run total. */
+  stationCost: number
+  /** Best-city income net of tax (run total), or null. */
+  income: number | null
+}
+
 export interface EnchantResult {
   enchant: number
   mealId: string
@@ -32,6 +45,7 @@ export interface EnchantResult {
   cityProfits: CityProfit[]
   bestProfit: number | null
   bestCity: string | null
+  breakdown: EnchantBreakdown
 }
 
 const STATION_FEE_CONSTANT = 0.001125
@@ -110,13 +124,24 @@ export function cookingProfit(params: CookingParams): EnchantResult[] {
 
     let bestProfit: number | null = null
     let bestCity: string | null = null
+    let bestSell: number | null = null
     for (const cp of cityProfits) {
       if (cp.profit != null && (bestProfit === null || cp.profit > bestProfit)) {
         bestProfit = cp.profit
         bestCity = cp.city
+        bestSell = cp.sellPrice
       }
     }
 
-    return { enchant, mealId, investment, sauceCost, cityProfits, bestProfit, bestCity }
+    const returnableMat = (returnableIng + sauceCost) * batches
+    const breakdown: EnchantBreakdown = {
+      returnableMat,
+      nonReturnMat: nonReturnIng * batches,
+      returnValue: returnableMat * returnRate,
+      stationCost: stationCost * batches,
+      income: bestSell != null ? bestSell * recipe.output * (1 - tax) * batches : null,
+    }
+
+    return { enchant, mealId, investment, sauceCost, cityProfits, bestProfit, bestCity, breakdown }
   })
 }
