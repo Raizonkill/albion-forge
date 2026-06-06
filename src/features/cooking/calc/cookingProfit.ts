@@ -97,7 +97,9 @@ export function cookingProfit(params: CookingParams): EnchantResult[] {
     else nonReturnIng += cost
   }
 
-  const stationCost = recipe.nutrition * STATION_FEE_CONSTANT * stationFeePer100
+  // Station usage fee = (sum of ingredient item values) × 0.1125 × feeRate%. Same for
+  // every enchant level (the sauce doesn't add to the fee).
+  const stationCost = recipe.craftValue * STATION_FEE_CONSTANT * stationFeePer100
 
   return recipe.focusByEnchant.map((_focus, enchant) => {
     const mealId = mealItemId(recipe.id, enchant)

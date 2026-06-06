@@ -24,10 +24,10 @@ describe('cookingProfit', () => {
       stationFeePer100: 350,
       returnRate: 0, // no return → full material cost
     })[0]
-    // ingredients 160 + station 77×0.001125×350 = 30.31875 → 190.31875
-    expect(e0.investment).toBeCloseTo(190.31875, 3)
-    // income 200×10×0.935 = 1870 → profit 1679.68125
-    expect(e0.bestProfit).toBeCloseTo(1679.68125, 2)
+    // ingredients 160 + station (craftValue 640 × 0.001125 × 350 = 252) → 412
+    expect(e0.investment).toBeCloseTo(412, 3)
+    // income 200×10×0.935 = 1870 → profit 1458
+    expect(e0.bestProfit).toBeCloseTo(1458, 2)
     expect(e0.bestCity).toBe('Caerleon')
   })
 
@@ -47,8 +47,8 @@ describe('cookingProfit', () => {
       stationFeePer100: 350,
       returnRate: 0.435, // with focus
     })[0]
-    // materials 160 × (1 - 0.435) = 90.4; + station 30.31875 = 120.71875
-    expect(e0.investment).toBeCloseTo(120.71875, 3)
+    // materials 160 × (1 - 0.435) = 90.4; + station 252 = 342.4
+    expect(e0.investment).toBeCloseTo(342.4, 3)
   })
 
   it('does NOT return Avalonian energy (paid in full)', () => {
