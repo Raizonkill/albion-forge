@@ -7,7 +7,7 @@ import { Field, NumberField, Toggle } from '@/shared/ui/controls'
 import { ItemIcon } from '@/shared/ui/ItemIcon'
 import { useMarketPricesMulti } from '@/features/market/api/useMarketPricesMulti'
 import { COOKING_RECIPES, SAUCE_IDS, mealItemId } from './data/recipes'
-import { COOKING_SPECS } from './specs'
+import { COOKING_SPECS, hasResourceReturn } from './specs'
 import { cookingProfit } from './calc/cookingProfit'
 import { focusPerCraft } from './calc/cookingFocus'
 import { effectiveReturnRate } from '@/features/refine/calc/returnRate'
@@ -81,17 +81,19 @@ export function CookingCalculator() {
     return best
   }
 
-  // Net base-material cost after the resource return (for the "materials consumed" summary).
+  // Net base-material cost after return. Avalon energy / rare fish are paid in full.
   const baseGross = recipe.ingredientes.reduce(
     (acc, ing) => {
       const u = buyPrice(ing.id)
-      return u == null
-        ? { sum: acc.sum, known: false }
-        : { sum: acc.sum + u * ing.qty, known: acc.known }
+      if (u == null) return { ...acc, known: false }
+      const cost = u * ing.qty
+      return hasResourceReturn(ing.id)
+        ? { ret: acc.ret + cost, non: acc.non, known: acc.known }
+        : { ret: acc.ret, non: acc.non + cost, known: acc.known }
     },
-    { sum: 0, known: true },
+    { ret: 0, non: 0, known: true },
   )
-  const netBaseTotal = baseGross.known ? baseGross.sum * keep : null
+  const netBaseTotal = baseGross.known ? baseGross.ret * keep + baseGross.non : null
 
   const results = useMemo(
     () =>
@@ -299,7 +301,7 @@ export function CookingCalculator() {
           <div className="grid gap-2 rounded-lg border border-success/20 bg-success/5 p-3">
             <div className="flex items-baseline justify-between">
               <span className="text-xs font-medium uppercase tracking-wide text-text-muted">
-                Materiales consumidos
+                Materiales a comprar ({batches} crafteos)
               </span>
               <span className="text-[10px] font-bold text-success">
                 devolución {(returnRate * 100).toFixed(1)}%
@@ -307,15 +309,20 @@ export function CookingCalculator() {
             </div>
             {recipe.ingredientes.map((ing) => {
               const name = ing.id === 'QUESTITEM_TOKEN_AVALON' ? AVALON_NAME : ing.name
+              const returns = hasResourceReturn(ing.id)
+              const netQty = (returns ? ing.qty * keep : ing.qty) * batches
               return (
                 <div
                   key={ing.id}
                   className="flex items-center justify-between gap-2 text-xs"
                 >
-                  <span className="min-w-0 flex-1 truncate text-text-muted">{name}</span>
+                  <span className="min-w-0 flex-1 truncate text-text-muted">
+                    {name}
+                    {!returns && <span className="ml-1 text-text-faint">(sin retorno)</span>}
+                  </span>
                   <span className="tabular">
-                    {(ing.qty * keep).toFixed(1)}{' '}
-                    <span className="text-text-faint">de {ing.qty}</span>
+                    {formatSilver(netQty)}{' '}
+                    <span className="text-text-faint">de {formatSilver(ing.qty * batches)}</span>
                   </span>
                 </div>
               )
@@ -323,7 +330,7 @@ export function CookingCalculator() {
             <div className="mt-1 flex items-center justify-between border-t border-divider pt-2 text-sm">
               <span className="font-medium">Coste neto materiales (.0)</span>
               <span className="tabular font-bold text-success">
-                {netBaseTotal != null ? formatSilver(netBaseTotal) : '—'}
+                {netBaseTotal != null ? formatSilver(netBaseTotal * batches) : '—'}
               </span>
             </div>
           </div>

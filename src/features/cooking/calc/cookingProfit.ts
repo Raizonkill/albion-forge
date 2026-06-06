@@ -1,5 +1,6 @@
 import { totalSalesTax } from '@/config/game'
 import { SAUCE_IDS, mealItemId, type CookingRecipe } from '../data/recipes'
+import { hasResourceReturn } from '../specs'
 
 /** Returns the usable sell-order price for an item in a city, or null. */
 export type PriceAt = (itemId: string, city: string) => number | null
@@ -66,13 +67,20 @@ export function cookingProfit(params: CookingParams): EnchantResult[] {
   const tax = totalSalesTax(premium)
   const keep = 1 - returnRate // fraction of materials you actually have to buy
 
-  // Base ingredient cost per craft (same for every enchant). Null if any is unpriced.
-  let ingredientsCost = 0
+  // Base ingredient cost per craft (same for every enchant). Split by whether the resource
+  // is returned: Avalonian energy and rare fish are NOT (full price); everything else is.
+  let returnableIng = 0
+  let nonReturnIng = 0
   let ingredientsKnown = true
   for (const ing of recipe.ingredientes) {
     const p = buyPrice(priceAt, ing.id, craftCity, cities)
-    if (p == null) ingredientsKnown = false
-    else ingredientsCost += p * ing.qty
+    if (p == null) {
+      ingredientsKnown = false
+      continue
+    }
+    const cost = p * ing.qty
+    if (hasResourceReturn(ing.id)) returnableIng += cost
+    else nonReturnIng += cost
   }
 
   const stationCost = recipe.nutrition * STATION_FEE_CONSTANT * stationFeePer100
@@ -84,10 +92,10 @@ export function cookingProfit(params: CookingParams): EnchantResult[] {
       sauceQty > 0 ? buyPrice(priceAt, SAUCE_IDS[enchant], craftCity, cities) : 0
     const sauceCost = sauceQty > 0 ? (saucePrice ?? 0) * sauceQty : 0
 
-    // Resource return reduces the materials (ingredients + sauce) you must buy; the
-    // station fee is unaffected.
+    // Returnable materials (normal ingredients + sauces) are reduced by the return rate;
+    // non-returnable ones (avalon energy, rare fish) and the station fee are paid in full.
     const investmentPerCraft = ingredientsKnown
-      ? (ingredientsCost + sauceCost) * keep + stationCost
+      ? (returnableIng + sauceCost) * keep + nonReturnIng + stationCost
       : null
     const investment = investmentPerCraft != null ? investmentPerCraft * batches : null
 

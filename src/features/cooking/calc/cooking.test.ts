@@ -4,6 +4,7 @@ import { focusEfficiency, focusPerCraft, masteryFactor } from './cookingFocus'
 import { COOKING_RECIPES } from '../data/recipes'
 
 const soup = COOKING_RECIPES.find((r) => r.id === 'T1_MEAL_SOUP')! // Carrot ×16, output 10, nutrition 77
+const avaStew = COOKING_RECIPES.find((r) => r.id === 'T8_MEAL_STEW_AVALON')! // uses 90 Avalon energy
 
 describe('cookingProfit', () => {
   it('computes the .0 profit for a hand-checked case', () => {
@@ -48,6 +49,22 @@ describe('cookingProfit', () => {
     })[0]
     // materials 160 × (1 - 0.435) = 90.4; + station 30.31875 = 120.71875
     expect(e0.investment).toBeCloseTo(120.71875, 3)
+  })
+
+  it('does NOT return Avalonian energy (paid in full)', () => {
+    // Price every normal ingredient at 0; only the 90 Avalon energy units cost 100 each.
+    const priceAt: PriceAt = (id) => (id === 'QUESTITEM_TOKEN_AVALON' ? 100 : 0)
+    const e0 = cookingProfit({
+      recipe: avaStew,
+      craftCity: 'Caerleon',
+      cities: ['Caerleon'],
+      premium: true,
+      batches: 1,
+      priceAt,
+      stationFeePer100: 0,
+      returnRate: 0.5, // would halve a returnable cost; energy must stay full
+    })[0]
+    expect(e0.investment).toBeCloseTo(9000, 5) // 90 × 100, no return applied
   })
 
   it('produces one result per available enchant level', () => {
